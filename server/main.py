@@ -3,6 +3,7 @@ import uvicorn
 from fastapi import FastAPI, File, HTTPException, Depends, Body, UploadFile
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.staticfiles import StaticFiles
+import requests
 
 from models.api import (
     DeleteRequest,
@@ -21,10 +22,10 @@ app.mount("/.well-known", StaticFiles(directory=".well-known"), name="static")
 
 # Create a sub-application, in order to access just the query endpoint in an OpenAPI schema, found at http://0.0.0.0:8000/sub/openapi.json when the app is running locally
 sub_app = FastAPI(
-    title="Retrieval Plugin API",
-    description="A retrieval API for querying and filtering documents based on natural language queries and metadata",
-    version="1.0.0",
-    servers=[{"url": "https://your-app-url.com"}],
+    title="Authory Archive Search Plugin",
+    description="A Plugin to allow ChatGPT to access your full Authory archive.",
+    version="0.0.1",
+    servers=[{"url": "https://authory.com"}],
 )
 app.mount("/sub", sub_app)
 
@@ -32,11 +33,43 @@ bearer_scheme = HTTPBearer()
 BEARER_TOKEN = os.environ.get("BEARER_TOKEN")
 assert BEARER_TOKEN is not None
 
+AUTHORY_API_BASE_PATH = os.environ.get("AUTHORY_API_BASE_PATH")
+assert AUTHORY_API_BASE_PATH is not None
 
-def validate_token(credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)):
+class AuthoryAuthorizationCredentials():
+    user_id: str
+    scheme: str
+    credentials: str
+
+    def __init__(self, scheme: str, credentials: str, user_id: str) -> None:
+         self.scheme = scheme
+         self.user_id = user_id
+         self.credentials = credentials
+    
+
+def validate_admin_token(credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)):
     if credentials.scheme != "Bearer" or credentials.credentials != BEARER_TOKEN:
         raise HTTPException(status_code=401, detail="Invalid or missing token")
     return credentials
+
+def validate_authory_token(credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)):
+    if credentials.scheme != "Bearer":
+        raise HTTPException(status_code=401, detail="Invalid or missing token")
+    
+    token = credentials.credentials
+
+    response = requests.get(f"{AUTHORY_API_BASE_PATH}/api/v1/list-collections?key={token}")
+
+    if response.status_code != 200:
+        raise HTTPException(status_code=403, details="Authentication with Authory failed.")
+
+    response_json = response.json()
+
+    user_id = response_json["user"]["slug"]
+
+    res = AuthoryAuthorizationCredentials(credentials.scheme, credentials.credentials, user_id)
+
+    return res
 
 
 @app.post(
@@ -45,7 +78,7 @@ def validate_token(credentials: HTTPAuthorizationCredentials = Depends(bearer_sc
 )
 async def upsert_file(
     file: UploadFile = File(...),
-    token: HTTPAuthorizationCredentials = Depends(validate_token),
+    token: AuthoryAuthorizationCredentials = Depends(validate_admin_token),
 ):
     document = await get_document_from_file(file)
 
@@ -63,8 +96,9 @@ async def upsert_file(
 )
 async def upsert(
     request: UpsertRequest = Body(...),
-    token: HTTPAuthorizationCredentials = Depends(validate_token),
+    token: AuthoryAuthorizationCredentials = Depends(validate_admin_token),
 ):
+
     try:
         ids = await datastore.upsert(request.documents)
         return UpsertResponse(ids=ids)
@@ -79,8 +113,12 @@ async def upsert(
 )
 async def query_main(
     request: QueryRequest = Body(...),
-    token: HTTPAuthorizationCredentials = Depends(validate_token),
+    token: AuthoryAuthorizationCredentials = Depends(validate_authory_token),
 ):
+    
+    for queries in request.queries:
+        queries.filter.author = token.user_id
+
     try:
         results = await datastore.query(
             request.queries,
@@ -99,7 +137,7 @@ async def query_main(
 )
 async def query(
     request: QueryRequest = Body(...),
-    token: HTTPAuthorizationCredentials = Depends(validate_token),
+    token: AuthoryAuthorizationCredentials = Depends(validate_admin_token),
 ):
     try:
         results = await datastore.query(
@@ -117,7 +155,7 @@ async def query(
 )
 async def delete(
     request: DeleteRequest = Body(...),
-    token: HTTPAuthorizationCredentials = Depends(validate_token),
+    token: AuthoryAuthorizationCredentials = Depends(validate_authory_token),
 ):
     if not (request.ids or request.filter or request.delete_all):
         raise HTTPException(

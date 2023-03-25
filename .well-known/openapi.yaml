@@ -1,10 +1,10 @@
 openapi: 3.0.2
 info:
-  title: Retrieval Plugin API
-  description: A retrieval API for querying and filtering documents based on natural language queries and metadata
-  version: 1.0.0
+  title: Authory Archive Search Plugin
+  description: A Plugin to allow ChatGPT to access your full authory archive.
+  version: 0.0.1
   servers:
-    - url: https://your-app-url.com
+    - url: https://authory.com
 paths:
   /query:
     post:
