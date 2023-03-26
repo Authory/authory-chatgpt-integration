@@ -80,14 +80,8 @@ async def upsert_file(
     file: UploadFile = File(...),
     token: AuthoryAuthorizationCredentials = Depends(validate_admin_token),
 ):
-    document = await get_document_from_file(file)
-
-    try:
-        ids = await datastore.upsert([document])
-        return UpsertResponse(ids=ids)
-    except Exception as e:
-        print("Error:", e)
-        raise HTTPException(status_code=500, detail=f"str({e})")
+    
+    raise HTTPException(status_code=409, detail="Not supported with Authory data model.")
 
 
 @app.post(
@@ -98,7 +92,6 @@ async def upsert(
     request: UpsertRequest = Body(...),
     token: AuthoryAuthorizationCredentials = Depends(validate_admin_token),
 ):
-
     try:
         ids = await datastore.upsert(request.documents)
         return UpsertResponse(ids=ids)
@@ -117,7 +110,7 @@ async def query_main(
 ):
     
     for queries in request.queries:
-        queries.filter.author = token.user_id
+        queries.filter.author_id = token.user_id
 
     try:
         results = await datastore.query(

@@ -1,10 +1,10 @@
 openapi: 3.0.2
 info:
   title: Authory Archive Search Plugin
-  description: A Plugin to allow ChatGPT to access your full authory archive.
+  description: A Plugin to allow ChatGPT to access your full Authory archive.
   version: 0.0.1
-  servers:
-    - url: https://authory.com
+servers:
+  - url: https://chatgpt-production.authory.com
 paths:
   /query:
     post:
@@ -15,21 +15,21 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/QueryRequest"
+              $ref: '#/components/schemas/QueryRequest'
         required: true
       responses:
-        "200":
+        '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryResponse"
-        "422":
+                $ref: '#/components/schemas/QueryResponse'
+        '422':
           description: Validation Error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HTTPValidationError"
+                $ref: '#/components/schemas/HTTPValidationError'
       security:
         - HTTPBearer: []
 components:
@@ -39,10 +39,17 @@ components:
       type: object
       properties:
         source:
-          $ref: "#/components/schemas/Source"
+          allOf:
+            - $ref: '#/components/schemas/Source'
+          default: Web
         source_id:
           title: Source Id
           type: string
+          default: ''
+        source_name:
+          title: Source Name
+          type: string
+          default: ''
         url:
           title: Url
           type: string
@@ -52,6 +59,11 @@ components:
         author:
           title: Author
           type: string
+          default: ''
+        author_id:
+          title: Author Id
+          type: string
+          default: ''
         document_id:
           title: Document Id
           type: string
@@ -70,7 +82,7 @@ components:
           title: Text
           type: string
         metadata:
-          $ref: "#/components/schemas/DocumentChunkMetadata"
+          $ref: '#/components/schemas/DocumentChunkMetadata'
         embedding:
           title: Embedding
           type: array
@@ -87,7 +99,10 @@ components:
           title: Document Id
           type: string
         source:
-          $ref: "#/components/schemas/Source"
+          $ref: '#/components/schemas/Source'
+        source_name:
+          title: Source Name
+          type: string
         source_id:
           title: Source Id
           type: string
@@ -100,6 +115,9 @@ components:
         end_date:
           title: End Date
           type: string
+        author_id:
+          title: Author Id
+          type: string
     HTTPValidationError:
       title: HTTPValidationError
       type: object
@@ -108,7 +126,7 @@ components:
           title: Detail
           type: array
           items:
-            $ref: "#/components/schemas/ValidationError"
+            $ref: '#/components/schemas/ValidationError'
     Query:
       title: Query
       required:
@@ -119,7 +137,7 @@ components:
           title: Query
           type: string
         filter:
-          $ref: "#/components/schemas/DocumentMetadataFilter"
+          $ref: '#/components/schemas/DocumentMetadataFilter'
         top_k:
           title: Top K
           type: integer
@@ -134,7 +152,7 @@ components:
           title: Queries
           type: array
           items:
-            $ref: "#/components/schemas/Query"
+            $ref: '#/components/schemas/Query'
     QueryResponse:
       title: QueryResponse
       required:
@@ -145,7 +163,7 @@ components:
           title: Results
           type: array
           items:
-            $ref: "#/components/schemas/QueryResult"
+            $ref: '#/components/schemas/QueryResult'
     QueryResult:
       title: QueryResult
       required:
@@ -160,13 +178,21 @@ components:
           title: Results
           type: array
           items:
-            $ref: "#/components/schemas/DocumentChunkWithScore"
+            $ref: '#/components/schemas/DocumentChunkWithScore'
     Source:
       title: Source
       enum:
-        - email
-        - file
-        - chat
+        - Web
+        - Offline
+        - Linkedin
+        - Facebook
+        - Instagram
+        - Twitter
+        - PodcastRssFeed
+        - RssFeed
+        - Youtube
+        - EntireInternet
+        - Sitemap
       type: string
       description: An enumeration.
     ValidationError:
